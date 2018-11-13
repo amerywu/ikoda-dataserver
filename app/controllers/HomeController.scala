@@ -6,7 +6,7 @@ import javax.inject._
 import model.{KeyspaceRecord, KeyspaceRecords, TestObject}
 import play.api.libs.json._
 import play.api.mvc._
-import service.TestObjQueries
+import service.{SimpleMessage, TestObjQueries}
 import play.api.libs.functional.syntax._
 import dataConnection._
 import akka.stream.alpakka.cassandra.scaladsl.CassandraSource
@@ -70,7 +70,7 @@ class HomeController @Inject()(cc: ControllerComponents,configuration: Configura
   implicit val ksseqWrites = new Writes[KeyspaceRecords] {
     def writes(ksseq: KeyspaceRecords) = Json.obj(
       "id" -> ksseq.id.getOrElse[Int](0),
-      "keyspaceName" -> ksseq.records
+      "records" -> ksseq.records
     )
   }
 
@@ -78,6 +78,24 @@ class HomeController @Inject()(cc: ControllerComponents,configuration: Configura
     (__ \ "id").readNullable[Int] and
       (JsPath \ "records").read[Seq[KeyspaceRecord]]
     )(KeyspaceRecords.apply _)
+
+
+  //////////////////////////////
+
+  implicit val mWrites = new Writes[SimpleMessage] {
+    def writes(m: SimpleMessage) = Json.obj(
+      "id" -> m.id.getOrElse[Int](0),
+      "message" -> m.message,
+      "uuid" -> m.uuid
+    )
+  }
+
+  implicit val mReads: Reads[SimpleMessage] = (
+    (__ \ "id").readNullable[Int] and
+      (JsPath \ "message").read[String] and
+      (JsPath \ "uuid").read[String]
+    )(SimpleMessage.apply _)
+  //////////////////////////////
 
   /**
    * Create an Action to render an HTML page.
@@ -101,7 +119,7 @@ class HomeController @Inject()(cc: ControllerComponents,configuration: Configura
   }
 
   def jsonstart() = Action { implicit request: Request[AnyContent] =>
-    Ok(views.html.jsontest(TestObjQueries.testObjects()))
+    Ok(views.html.jsontest())
   }
 
   def tryjson() = Action { implicit request: Request[AnyContent] =>
@@ -164,11 +182,44 @@ class HomeController @Inject()(cc: ControllerComponents,configuration: Configura
   }
 
 
-  def keyspaces() = Action { implicit request: Request[AnyContent] =>
+  def keyspaces() = Action {
+    implicit request: Request[AnyContent] =>
       val uuid:String=java.util.UUID.randomUUID().toString
+      val sm=SimpleMessage(None,"Retrieving data. It will appear here when the query is complete.",uuid)
       factory("ks",uuid)
-      Ok(views.html.cassandratest(uuid))
+      Ok(Json.toJson(sm))
   }
+
+  def checkin(uuid:String) = Action {
+    implicit request: Request[AnyContent] =>
+      Logger.info("uuid checked in "+uuid)
+      currentRequests.get(uuid).isDefined match
+      {
+        case true =>
+          val sm=SimpleMessage(None,"ok",uuid)
+          Ok(Json.toJson(sm))
+        case false =>
+          val sm=SimpleMessage(None,"wait",uuid)
+          Ok(Json.toJson(sm))
+      }
+  }
+
+
+  def data(uuid:String) = Action {
+    implicit request: Request[AnyContent] =>
+      Logger.info("data for "+uuid)
+      currentRequests.get(uuid).isDefined match
+      {
+        case true =>
+          Logger.info(currentRequests.get(uuid).get)
+          Ok(currentRequests.get(uuid).get)
+        case false =>
+          val sm=SimpleMessage(None,"wait",uuid)
+          Ok(Json.toJson(sm))
+      }
+  }
+
+
 
 
 

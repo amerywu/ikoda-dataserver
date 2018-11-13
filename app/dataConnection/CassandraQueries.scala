@@ -6,10 +6,9 @@ import akka.stream.ActorMaterializer
 import akka.stream.alpakka.cassandra.scaladsl.CassandraSource
 import akka.stream.scaladsl.{Sink, Source}
 import com.datastax.driver.core.{Cluster, Row, Session, SimpleStatement}
-
 import javax.inject.Inject
-import play.api.Configuration
-
+import play.api.{Configuration, Logger}
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 class CassandraQueries @Inject()(configuration: Configuration){
@@ -62,12 +61,21 @@ class CassandraQueries @Inject()(configuration: Configuration){
   }
 
 
-  def keyspaces():Future[Seq[Row]]=
+  def simpleQuery[A](query:String, out:(Option[Seq[Row]], Option[String]) => A):Unit=
   {
-    val stmt = new SimpleStatement("SELECT * FROM system_schema.keyspaces;").setFetchSize(200)
-    val sb:StringBuilder= new StringBuilder()
-    val source = CassandraSource(stmt)
-    source.runWith(Sink.seq)
+    try {
+      val stmt = new SimpleStatement(query).setFetchSize(200)
+      val sb: StringBuilder = new StringBuilder()
+      val source = CassandraSource(stmt)
+      source.runWith(Sink.seq).onComplete {
+        case Success(f) => out(Some(f),None)
+        case Failure(e) => out(None,Some(e.getMessage))
+      }
+    }
+    catch
+      {
+        case e:Exception=> Logger.error(e.getMessage,e)
+      }
   }
 
 }

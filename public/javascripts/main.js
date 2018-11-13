@@ -28,33 +28,33 @@ function jqLoad()
  
  function checkin(uuid,callName)
  {
+    if(!unDefined(uuid))
+    {
     $(document).ready(function() {
-         alert('checkin/'+uuid)
+
          $.getJSON('checkin/'+uuid, function(sm) {
-         alert(sm.message)
           if(sm.message=="ok")
           {
             showData(uuid,callName)
           }
           else
           {
+          $('#messages').html('<p>c : ' + sm.message + '</p>');
             setTimeout(checkin,1000)
             checkin(uuid);
           }
 
          });
      });
+     }
  }
 
  function showData(uuid,callName)
  {
     $(document).ready(function() {
-          alert('data/'+uuid)
-          alert('callName/'+callName)
+
           $.getJSON('data/'+uuid, function(jsonData) {
             $('#messages').html('<p>Keyspaces</p>');
-            alert(jsonData)
-            alert(jsonData.records.length)
             for (var i = 0; i < jsonData.records.length; i++) {
                 var ks = jsonData.records[i];
                 $('#messages').append('<p>c  : ' + ks.keyspaceName+ '</p>');
@@ -64,7 +64,7 @@ function jqLoad()
  }
 
 
- function isDefined(myVar)
+ function unDefined(myVar)
  {
     return typeof myVar == 'undefined'
  }
@@ -74,8 +74,7 @@ function jqLoad()
  {
   $(document).ready(function() {
     $.getJSON('keyspaces', function(sm) {
-       $('#messages').html('<p>c : ' + sm.message + '</p>');
-       $('#messages').append('<p>c  : ' + sm.uuid+ '</p>');
+
        checkin(sm.uuid,'keyspaces')
 
 
